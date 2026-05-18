@@ -229,13 +229,12 @@ parse_geometry_token() {
 }
 
 wait_for_xrandr() {
-  local elapsed=0
-  while [ "$elapsed" -lt "$WAIT_SECONDS" ]; do
+  local start_ts="$SECONDS"
+  while [ $((SECONDS - start_ts)) -lt "$WAIT_SECONDS" ]; do
     if xrandr --query >/dev/null 2>&1; then
       return 0
     fi
     sleep "$RETRY_SECONDS"
-    elapsed=$((elapsed + RETRY_SECONDS))
   done
   return 1
 }
@@ -338,16 +337,27 @@ if [ -z "${XAUTHORITY:-}" ] && [ -n "${HOME:-}" ] && [ -f "$HOME/.Xauthority" ];
 fi
 
 if [ -x "$LAYOUT_SCRIPT" ]; then
-  "$LAYOUT_SCRIPT"
+  if ! "$LAYOUT_SCRIPT"; then
+    echo "❌ Display-Layout konnte für screen1 nicht vorbereitet werden"
+    exit 1
+  fi
 fi
 
+read_geometry_value() {
+  local key="$1"
+  awk -F= -v target="$key" '$1 == target { print $2; exit }' "$GEOMETRY_FILE"
+}
+
 if [ -f "$GEOMETRY_FILE" ]; then
-  # shellcheck disable=SC1090
-  source "$GEOMETRY_FILE"
-  POS_X="${SCREEN1_POS_X:-$POS_X}"
-  POS_Y="${SCREEN1_POS_Y:-$POS_Y}"
-  WIDTH="${SCREEN1_WIDTH:-$WIDTH}"
-  HEIGHT="${SCREEN1_HEIGHT:-$HEIGHT}"
+  GEOM_POS_X="$(read_geometry_value SCREEN1_POS_X)"
+  GEOM_POS_Y="$(read_geometry_value SCREEN1_POS_Y)"
+  GEOM_WIDTH="$(read_geometry_value SCREEN1_WIDTH)"
+  GEOM_HEIGHT="$(read_geometry_value SCREEN1_HEIGHT)"
+
+  if [[ "$GEOM_POS_X" =~ ^[0-9]+$ ]]; then POS_X="$GEOM_POS_X"; fi
+  if [[ "$GEOM_POS_Y" =~ ^[0-9]+$ ]]; then POS_Y="$GEOM_POS_Y"; fi
+  if [[ "$GEOM_WIDTH" =~ ^[0-9]+$ ]]; then WIDTH="$GEOM_WIDTH"; fi
+  if [[ "$GEOM_HEIGHT" =~ ^[0-9]+$ ]]; then HEIGHT="$GEOM_HEIGHT"; fi
 fi
 
 xset s off || true
@@ -396,16 +406,27 @@ if [ -z "${XAUTHORITY:-}" ] && [ -n "${HOME:-}" ] && [ -f "$HOME/.Xauthority" ];
 fi
 
 if [ -x "$LAYOUT_SCRIPT" ]; then
-  "$LAYOUT_SCRIPT"
+  if ! "$LAYOUT_SCRIPT"; then
+    echo "❌ Display-Layout konnte für screen2 nicht vorbereitet werden"
+    exit 1
+  fi
 fi
 
+read_geometry_value() {
+  local key="$1"
+  awk -F= -v target="$key" '$1 == target { print $2; exit }' "$GEOMETRY_FILE"
+}
+
 if [ -f "$GEOMETRY_FILE" ]; then
-  # shellcheck disable=SC1090
-  source "$GEOMETRY_FILE"
-  POS_X="${SCREEN2_POS_X:-$POS_X}"
-  POS_Y="${SCREEN2_POS_Y:-$POS_Y}"
-  WIDTH="${SCREEN2_WIDTH:-$WIDTH}"
-  HEIGHT="${SCREEN2_HEIGHT:-$HEIGHT}"
+  GEOM_POS_X="$(read_geometry_value SCREEN2_POS_X)"
+  GEOM_POS_Y="$(read_geometry_value SCREEN2_POS_Y)"
+  GEOM_WIDTH="$(read_geometry_value SCREEN2_WIDTH)"
+  GEOM_HEIGHT="$(read_geometry_value SCREEN2_HEIGHT)"
+
+  if [[ "$GEOM_POS_X" =~ ^[0-9]+$ ]]; then POS_X="$GEOM_POS_X"; fi
+  if [[ "$GEOM_POS_Y" =~ ^[0-9]+$ ]]; then POS_Y="$GEOM_POS_Y"; fi
+  if [[ "$GEOM_WIDTH" =~ ^[0-9]+$ ]]; then WIDTH="$GEOM_WIDTH"; fi
+  if [[ "$GEOM_HEIGHT" =~ ^[0-9]+$ ]]; then HEIGHT="$GEOM_HEIGHT"; fi
 fi
 
 xset s off || true
