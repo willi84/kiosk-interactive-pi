@@ -31,7 +31,7 @@ sudo ./setup-kiosk.sh
 
 ## Root Cause + Fix (zwei Browser-Sessions)
 
-Das Problem „Opening in existing browser session“ kam durch geteilte Chromium-Session/Profile.  
+Das Problem "Opening in existing browser session" kam durch geteilte Chromium-Session/Profile.  
 Fix: beide Screens verwenden jetzt eigene Profile via `--user-data-dir`:
 
 - Screen 1: `/opt/dual-kiosk-display/chromium-profile-screen1`

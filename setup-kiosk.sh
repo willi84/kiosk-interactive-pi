@@ -158,7 +158,7 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen1"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
-SAFE_URL="$(printf '%s\n' "${URL%%#*}" | sed -E 's/\?.*$//' | sed -E 's#(://)[^/@]+@#\1***@#')"
+SAFE_URL="$(printf '%s\n' "$URL" | sed -E 's#(://)[^/@]+@#\1***@#' | sed -E 's/[?#].*$//')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
@@ -197,7 +197,7 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen2"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
-SAFE_URL="$(printf '%s\n' "${URL%%#*}" | sed -E 's/\?.*$//' | sed -E 's#(://)[^/@]+@#\1***@#')"
+SAFE_URL="$(printf '%s\n' "$URL" | sed -E 's#(://)[^/@]+@#\1***@#' | sed -E 's/[?#].*$//')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
