@@ -33,8 +33,8 @@ fi
 source "$SETUP_CONFIG_FILE"
 
 CURRENT_HOSTNAME="$(hostname)"
-DEFAULT_SCREEN1_URL="https://example.com"
-DEFAULT_SCREEN2_URL="https://example.org"
+DEFAULT_SCREEN1_URL="https://pendler-alarm.de/"
+DEFAULT_SCREEN2_URL="https://docs.google.com/presentation/d/1qXXRuxEdrp3nGutWSS2N0uWYt8sRPmL24-GsqXWlJDM/present?loop=true&delayms=10000"
 
 resolve_config_value() {
   local value="${1:-}"
@@ -63,10 +63,45 @@ SCREEN2_WINDOW_POSITION="${SCREEN2_WINDOW_POSITION:-1920,0}"
 SCREEN1_WINDOW_SIZE="${SCREEN1_WINDOW_SIZE:-1920,1080}"
 SCREEN2_WINDOW_SIZE="${SCREEN2_WINDOW_SIZE:-1920,1080}"
 
-IFS=',' read -r SCREEN1_POS_X SCREEN1_POS_Y <<< "$SCREEN1_WINDOW_POSITION"
-IFS=',' read -r SCREEN2_POS_X SCREEN2_POS_Y <<< "$SCREEN2_WINDOW_POSITION"
-IFS=',' read -r SCREEN1_WIDTH SCREEN1_HEIGHT <<< "$SCREEN1_WINDOW_SIZE"
-IFS=',' read -r SCREEN2_WIDTH SCREEN2_HEIGHT <<< "$SCREEN2_WINDOW_SIZE"
+detect_connected_monitors() {
+  local line output geometry width height pos_x pos_y area
+  while IFS= read -r line; do
+    [[ "$line" == *" connected "* ]] || continue
+    output="${line%% *}"
+    geometry="$(printf '%s\n' "$line" | grep -oE '[0-9]+x[0-9]+\+[0-9]+\+[0-9]+' | head -n1 || true)"
+    [ -n "$geometry" ] || continue
+
+    IFS='x+' read -r width height pos_x pos_y <<< "$geometry"
+    area=$((width * height))
+    printf '%s,%s,%s,%s,%s,%s\n' "$output" "$width" "$height" "$pos_x" "$pos_y" "$area"
+  done < <(xrandr --query 2>/dev/null || true)
+}
+
+echo "== Monitor-Erkennung =="
+if command -v xrandr >/dev/null 2>&1; then
+  mapfile -t CONNECTED_MONITORS < <(detect_connected_monitors)
+
+  if [ "${#CONNECTED_MONITORS[@]}" -ge 2 ]; then
+    mapfile -t SORTED_MONITORS < <(printf '%s\n' "${CONNECTED_MONITORS[@]}" | sort -t, -k6,6n -k2,2n -k3,3n)
+    LAST_INDEX=$(( ${#SORTED_MONITORS[@]} - 1 ))
+
+    # Kleinstes Display bekommt Screen 1, größtes Display Screen 2.
+    IFS=',' read -r SMALL_OUTPUT SMALL_WIDTH SMALL_HEIGHT SMALL_X SMALL_Y _ <<< "${SORTED_MONITORS[0]}"
+    IFS=',' read -r LARGE_OUTPUT LARGE_WIDTH LARGE_HEIGHT LARGE_X LARGE_Y _ <<< "${SORTED_MONITORS[$LAST_INDEX]}"
+
+    SCREEN1_WINDOW_POSITION="$SMALL_X,$SMALL_Y"
+    SCREEN1_WINDOW_SIZE="$SMALL_WIDTH,$SMALL_HEIGHT"
+    SCREEN2_WINDOW_POSITION="$LARGE_X,$LARGE_Y"
+    SCREEN2_WINDOW_SIZE="$LARGE_WIDTH,$LARGE_HEIGHT"
+
+    echo "✅ Kleinster Monitor: $SMALL_OUTPUT (${SMALL_WIDTH}x${SMALL_HEIGHT}) -> Screen 1 URL"
+    echo "✅ Größter Monitor: $LARGE_OUTPUT (${LARGE_WIDTH}x${LARGE_HEIGHT}) -> Screen 2 URL"
+  else
+    echo "ℹ️ Weniger als zwei Monitore mit Geometrie erkannt, nutze konfigurierte Fallback-Werte."
+  fi
+else
+  echo "ℹ️ xrandr nicht verfügbar, nutze konfigurierte Fallback-Werte."
+fi
 
 echo "== Hostname =="
 if [ "$(hostname)" != "$KIOSK_HOSTNAME" ]; then

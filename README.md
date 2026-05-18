@@ -22,6 +22,11 @@ pi plugin willi84/kiosk-interactive-pi
 - systemd-Services `kiosk-screen1` und `kiosk-screen2`
 - Symlink im User-Home: `~/kiosk-config.env` → lokale `kiosk-config.env`
 
+Beim Setup wird zusätzlich per `xrandr` die Auflösung der verbundenen Monitore erkannt:
+
+- kleinerer Monitor → `SCREEN1_URL` (Standard: `https://pendler-alarm.de/`)
+- größerer Monitor → `SCREEN2_URL` (Standard: Google Slides Präsentation)
+
 Danach Setup ausführen:
 
 ```bash
