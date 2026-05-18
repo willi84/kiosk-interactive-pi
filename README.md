@@ -29,6 +29,22 @@ cd /pfad/zum/plugin
 sudo ./setup-kiosk.sh
 ```
 
+Wenn `SCREEN1_WINDOW_POSITION`, `SCREEN1_WINDOW_SIZE`, `SCREEN2_WINDOW_POSITION` oder `SCREEN2_WINDOW_SIZE` in `kiosk-config.env` nicht gesetzt sind, übernimmt `setup-kiosk.sh` nach Möglichkeit die aktuelle Monitor-Geometrie aus `xrandr --listmonitors`. Ohne erkennbare X-Layout-Infos bleiben die bisherigen Standardwerte aktiv.
+
+Beispiel für gemischte Auflösungen:
+
+```dotenv
+SCREEN1_DISPLAY=:0
+SCREEN1_WINDOW_POSITION=0,0
+SCREEN1_WINDOW_SIZE=1920,1080
+
+SCREEN2_DISPLAY=:0
+SCREEN2_WINDOW_POSITION=1920,0
+SCREEN2_WINDOW_SIZE=1024,600
+```
+
+Die WLAN-Konfiguration bleibt unverändert über `WIFI_SSID`, `WIFI_PASSWORD` und `WIFI_HIDDEN` in `kiosk-config.env` steuerbar.
+
 ## Root Cause + Fix (zwei Browser-Sessions)
 
 Das Problem "Opening in existing browser session" kam durch geteilte Chromium-Session/Profile.  
@@ -103,9 +119,30 @@ sudo jq -r '.screen1.url, .screen2.url, .screen1.windowPosition, .screen2.window
 Monitor-/Layout-Check:
 
 ```bash
-xrandr
-xrandr --listmonitors
+DISPLAY=:0 xrandr
+DISPLAY=:0 xrandr --listmonitors
 ```
+
+Beispiel-Ausgabe für zwei unterschiedlich große Displays:
+
+```text
+Monitors: 2
+ 0: +HDMI-A-1 1920/370x1080/140+0+0  HDMI-A-1
+ 1: +HDMI-A-2 1024/150x600/90+1920+0  HDMI-A-2
+```
+
+Dazu passende Runtime-Config:
+
+```bash
+sudo jq '.screen1, .screen2' /etc/dual-kiosk-display/config.json
+```
+
+Erwartete Werte im Beispiel oben:
+
+- `screen1.windowPosition`: `0,0`
+- `screen1.windowSize`: `1920,1080`
+- `screen2.windowPosition`: `1920,0`
+- `screen2.windowSize`: `1024,600`
 
 Optional (Fensterpositionen live prüfen):
 

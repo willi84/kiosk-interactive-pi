@@ -35,6 +35,10 @@ source "$SETUP_CONFIG_FILE"
 CURRENT_HOSTNAME="$(hostname)"
 DEFAULT_SCREEN1_URL="https://example.com"
 DEFAULT_SCREEN2_URL="https://example.org"
+DEFAULT_SCREEN1_WINDOW_POSITION="0,0"
+DEFAULT_SCREEN2_WINDOW_POSITION="1920,0"
+DEFAULT_SCREEN1_WINDOW_SIZE="1920,1080"
+DEFAULT_SCREEN2_WINDOW_SIZE="1920,1080"
 
 resolve_config_value() {
   local value="${1:-}"
@@ -49,6 +53,46 @@ resolve_config_value() {
   printf '%s\n' "$value"
 }
 
+detect_monitor_geometry() {
+  local display="${1:-:0}"
+  local monitor_index="${2:-0}"
+  local monitor_line=""
+  local geometry=""
+
+  monitor_line="$(DISPLAY="$display" xrandr --listmonitors 2>/dev/null | tail -n +2 | sed -n "$((monitor_index + 1))p" || true)"
+  if [ -z "$monitor_line" ]; then
+    return
+  fi
+
+  geometry="$(printf '%s\n' "$monitor_line" | sed -nE 's/^[[:space:]]*[0-9]+:.* ([0-9]+)\/[0-9]+x([0-9]+)\/[0-9]+\+([0-9]+)\+([0-9]+).*/\1,\2,\3,\4/p')"
+  if [ -z "$geometry" ]; then
+    return
+  fi
+
+  printf '%s\n' "$geometry"
+}
+
+screen_defaults_from_geometry() {
+  local geometry="${1:-}"
+  local fallback_position="${2:-}"
+  local fallback_size="${3:-}"
+  local width=""
+  local height=""
+  local pos_x=""
+  local pos_y=""
+
+  if [ -n "$geometry" ]; then
+    IFS=',' read -r width height pos_x pos_y <<< "$geometry"
+  fi
+
+  if [ -z "$width" ] || [ -z "$height" ] || [ -z "$pos_x" ] || [ -z "$pos_y" ]; then
+    printf '%s|%s\n' "$fallback_position" "$fallback_size"
+    return
+  fi
+
+  printf '%s,%s|%s,%s\n' "$pos_x" "$pos_y" "$width" "$height"
+}
+
 KIOSK_HOSTNAME="$(resolve_config_value "${KIOSK_HOSTNAME:-}" "<HOSTNAME>" "$CURRENT_HOSTNAME")"
 SCREEN1_URL="$(resolve_config_value "${SCREEN1_URL:-}" "<https://example.com>" "$DEFAULT_SCREEN1_URL")"
 SCREEN2_URL="$(resolve_config_value "${SCREEN2_URL:-}" "<https://example.org>" "$DEFAULT_SCREEN2_URL")"
@@ -58,10 +102,26 @@ WIFI_HIDDEN="${WIFI_HIDDEN:-false}"
 
 SCREEN1_DISPLAY="${SCREEN1_DISPLAY:-:0}"
 SCREEN2_DISPLAY="${SCREEN2_DISPLAY:-:0}"
-SCREEN1_WINDOW_POSITION="${SCREEN1_WINDOW_POSITION:-0,0}"
-SCREEN2_WINDOW_POSITION="${SCREEN2_WINDOW_POSITION:-1920,0}"
-SCREEN1_WINDOW_SIZE="${SCREEN1_WINDOW_SIZE:-1920,1080}"
-SCREEN2_WINDOW_SIZE="${SCREEN2_WINDOW_SIZE:-1920,1080}"
+
+SCREEN1_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN1_DISPLAY" 0)"
+SCREEN2_MONITOR_INDEX=1
+if [ "$SCREEN2_DISPLAY" != "$SCREEN1_DISPLAY" ]; then
+  SCREEN2_MONITOR_INDEX=0
+fi
+SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" "$SCREEN2_MONITOR_INDEX")"
+
+SCREEN1_DEFAULTS="$(screen_defaults_from_geometry "$SCREEN1_MONITOR_GEOMETRY" "$DEFAULT_SCREEN1_WINDOW_POSITION" "$DEFAULT_SCREEN1_WINDOW_SIZE")"
+SCREEN2_DEFAULTS="$(screen_defaults_from_geometry "$SCREEN2_MONITOR_GEOMETRY" "$DEFAULT_SCREEN2_WINDOW_POSITION" "$DEFAULT_SCREEN2_WINDOW_SIZE")"
+
+SCREEN1_DEFAULT_POSITION="${SCREEN1_DEFAULTS%%|*}"
+SCREEN1_DEFAULT_SIZE="${SCREEN1_DEFAULTS##*|}"
+SCREEN2_DEFAULT_POSITION="${SCREEN2_DEFAULTS%%|*}"
+SCREEN2_DEFAULT_SIZE="${SCREEN2_DEFAULTS##*|}"
+
+SCREEN1_WINDOW_POSITION="${SCREEN1_WINDOW_POSITION:-$SCREEN1_DEFAULT_POSITION}"
+SCREEN2_WINDOW_POSITION="${SCREEN2_WINDOW_POSITION:-$SCREEN2_DEFAULT_POSITION}"
+SCREEN1_WINDOW_SIZE="${SCREEN1_WINDOW_SIZE:-$SCREEN1_DEFAULT_SIZE}"
+SCREEN2_WINDOW_SIZE="${SCREEN2_WINDOW_SIZE:-$SCREEN2_DEFAULT_SIZE}"
 
 IFS=',' read -r SCREEN1_POS_X SCREEN1_POS_Y <<< "$SCREEN1_WINDOW_POSITION"
 IFS=',' read -r SCREEN2_POS_X SCREEN2_POS_Y <<< "$SCREEN2_WINDOW_POSITION"
@@ -90,6 +150,11 @@ fi
 
 echo "✅ Chromium Paket: $CHROMIUM_PACKAGE"
 echo "✅ Chromium Command: $CHROMIUM_CMD"
+if [ -n "$SCREEN1_MONITOR_GEOMETRY" ] || [ -n "$SCREEN2_MONITOR_GEOMETRY" ]; then
+  echo "✅ Erkannte Monitor-Geometrie: screen1=${SCREEN1_MONITOR_GEOMETRY:-n/a} screen2=${SCREEN2_MONITOR_GEOMETRY:-n/a}"
+else
+  echo "ℹ️ Keine Monitor-Geometrie via xrandr erkannt – nutze Standardwerte/Config."
+fi
 
 echo "== Installiere Pakete =="
 sudo apt update
