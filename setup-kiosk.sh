@@ -161,6 +161,9 @@ IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
 
 export DISPLAY="$DISPLAY_VALUE"
 
+echo "[$(date -Is)] [kiosk-screen1] Start requested (pid=$$)"
+echo "[$(date -Is)] [kiosk-screen1] URL=$URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+
 xset s off || true
 xset -dpms || true
 xset s noblank || true
@@ -196,6 +199,9 @@ IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
 
 export DISPLAY="$DISPLAY_VALUE"
 
+echo "[$(date -Is)] [kiosk-screen2] Start requested (pid=$$)"
+echo "[$(date -Is)] [kiosk-screen2] URL=$URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+
 xset s off || true
 xset -dpms || true
 xset s noblank || true
@@ -228,6 +234,9 @@ User=$USER_NAME
 ExecStart=$APP_DIR/kiosk-screen1.sh
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kiosk-screen1
 
 [Install]
 WantedBy=graphical.target
@@ -244,6 +253,9 @@ User=$USER_NAME
 ExecStart=$APP_DIR/kiosk-screen2.sh
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kiosk-screen2
 
 [Install]
 WantedBy=graphical.target
