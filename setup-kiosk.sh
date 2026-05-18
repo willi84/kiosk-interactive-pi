@@ -229,8 +229,13 @@ parse_geometry_token() {
 }
 
 wait_for_xrandr() {
-  local start_ts="$SECONDS"
-  while [ $((SECONDS - start_ts)) -lt "$WAIT_SECONDS" ]; do
+  local start_ts now_ts
+  start_ts="$(date +%s)"
+  while true; do
+    now_ts="$(date +%s)"
+    if [ $((now_ts - start_ts)) -ge "$WAIT_SECONDS" ]; then
+      break
+    fi
     if xrandr --query >/dev/null 2>&1; then
       return 0
     fi
@@ -307,6 +312,28 @@ fi
 }
 EOF
 
+echo "== kiosk-runtime-utils.sh =="
+sudo tee "$APP_DIR/kiosk-runtime-utils.sh" >/dev/null <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+kiosk_read_geometry_value() {
+  local geometry_file="$1"
+  local key="$2"
+  awk -F= -v target="$key" '$1 == target { print $2; exit }' "$geometry_file"
+}
+
+kiosk_pick_numeric() {
+  local candidate="$1"
+  local fallback="$2"
+  if [[ "$candidate" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$candidate"
+  else
+    printf '%s\n' "$fallback"
+  fi
+}
+EOF
+
 echo "== kiosk-screen1.sh =="
 sudo tee "$APP_DIR/kiosk-screen1.sh" >/dev/null <<'EOF'
 #!/usr/bin/env bash
@@ -314,6 +341,7 @@ set -euo pipefail
 
 CONFIG_FILE="/etc/dual-kiosk-display/config.json"
 LAYOUT_SCRIPT="/opt/dual-kiosk-display/kiosk-display-layout.sh"
+RUNTIME_UTILS="/opt/dual-kiosk-display/kiosk-runtime-utils.sh"
 GEOMETRY_FILE="/run/dual-kiosk-display/geometry.env"
 
 URL="$(jq -r '.screen1.url' "$CONFIG_FILE")"
@@ -343,21 +371,21 @@ if [ -x "$LAYOUT_SCRIPT" ]; then
   fi
 fi
 
-read_geometry_value() {
-  local key="$1"
-  awk -F= -v target="$key" '$1 == target { print $2; exit }' "$GEOMETRY_FILE"
-}
+if [ -x "$RUNTIME_UTILS" ]; then
+  # shellcheck disable=SC1090
+  source "$RUNTIME_UTILS"
+fi
 
-if [ -f "$GEOMETRY_FILE" ]; then
-  GEOM_POS_X="$(read_geometry_value SCREEN1_POS_X)"
-  GEOM_POS_Y="$(read_geometry_value SCREEN1_POS_Y)"
-  GEOM_WIDTH="$(read_geometry_value SCREEN1_WIDTH)"
-  GEOM_HEIGHT="$(read_geometry_value SCREEN1_HEIGHT)"
+if [ -f "$GEOMETRY_FILE" ] && command -v kiosk_read_geometry_value >/dev/null 2>&1; then
+  GEOM_POS_X="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN1_POS_X)"
+  GEOM_POS_Y="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN1_POS_Y)"
+  GEOM_WIDTH="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN1_WIDTH)"
+  GEOM_HEIGHT="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN1_HEIGHT)"
 
-  if [[ "$GEOM_POS_X" =~ ^[0-9]+$ ]]; then POS_X="$GEOM_POS_X"; fi
-  if [[ "$GEOM_POS_Y" =~ ^[0-9]+$ ]]; then POS_Y="$GEOM_POS_Y"; fi
-  if [[ "$GEOM_WIDTH" =~ ^[0-9]+$ ]]; then WIDTH="$GEOM_WIDTH"; fi
-  if [[ "$GEOM_HEIGHT" =~ ^[0-9]+$ ]]; then HEIGHT="$GEOM_HEIGHT"; fi
+  POS_X="$(kiosk_pick_numeric "$GEOM_POS_X" "$POS_X")"
+  POS_Y="$(kiosk_pick_numeric "$GEOM_POS_Y" "$POS_Y")"
+  WIDTH="$(kiosk_pick_numeric "$GEOM_WIDTH" "$WIDTH")"
+  HEIGHT="$(kiosk_pick_numeric "$GEOM_HEIGHT" "$HEIGHT")"
 fi
 
 xset s off || true
@@ -383,6 +411,7 @@ set -euo pipefail
 
 CONFIG_FILE="/etc/dual-kiosk-display/config.json"
 LAYOUT_SCRIPT="/opt/dual-kiosk-display/kiosk-display-layout.sh"
+RUNTIME_UTILS="/opt/dual-kiosk-display/kiosk-runtime-utils.sh"
 GEOMETRY_FILE="/run/dual-kiosk-display/geometry.env"
 
 URL="$(jq -r '.screen2.url' "$CONFIG_FILE")"
@@ -412,21 +441,21 @@ if [ -x "$LAYOUT_SCRIPT" ]; then
   fi
 fi
 
-read_geometry_value() {
-  local key="$1"
-  awk -F= -v target="$key" '$1 == target { print $2; exit }' "$GEOMETRY_FILE"
-}
+if [ -x "$RUNTIME_UTILS" ]; then
+  # shellcheck disable=SC1090
+  source "$RUNTIME_UTILS"
+fi
 
-if [ -f "$GEOMETRY_FILE" ]; then
-  GEOM_POS_X="$(read_geometry_value SCREEN2_POS_X)"
-  GEOM_POS_Y="$(read_geometry_value SCREEN2_POS_Y)"
-  GEOM_WIDTH="$(read_geometry_value SCREEN2_WIDTH)"
-  GEOM_HEIGHT="$(read_geometry_value SCREEN2_HEIGHT)"
+if [ -f "$GEOMETRY_FILE" ] && command -v kiosk_read_geometry_value >/dev/null 2>&1; then
+  GEOM_POS_X="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN2_POS_X)"
+  GEOM_POS_Y="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN2_POS_Y)"
+  GEOM_WIDTH="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN2_WIDTH)"
+  GEOM_HEIGHT="$(kiosk_read_geometry_value "$GEOMETRY_FILE" SCREEN2_HEIGHT)"
 
-  if [[ "$GEOM_POS_X" =~ ^[0-9]+$ ]]; then POS_X="$GEOM_POS_X"; fi
-  if [[ "$GEOM_POS_Y" =~ ^[0-9]+$ ]]; then POS_Y="$GEOM_POS_Y"; fi
-  if [[ "$GEOM_WIDTH" =~ ^[0-9]+$ ]]; then WIDTH="$GEOM_WIDTH"; fi
-  if [[ "$GEOM_HEIGHT" =~ ^[0-9]+$ ]]; then HEIGHT="$GEOM_HEIGHT"; fi
+  POS_X="$(kiosk_pick_numeric "$GEOM_POS_X" "$POS_X")"
+  POS_Y="$(kiosk_pick_numeric "$GEOM_POS_Y" "$POS_Y")"
+  WIDTH="$(kiosk_pick_numeric "$GEOM_WIDTH" "$WIDTH")"
+  HEIGHT="$(kiosk_pick_numeric "$GEOM_HEIGHT" "$HEIGHT")"
 fi
 
 xset s off || true
@@ -446,7 +475,7 @@ exec "$CHROMIUM_CMD" \
 EOF
 
 echo "== Rechte =="
-sudo chmod +x "$APP_DIR/kiosk-display-layout.sh" "$APP_DIR/kiosk-screen1.sh" "$APP_DIR/kiosk-screen2.sh"
+sudo chmod +x "$APP_DIR/kiosk-display-layout.sh" "$APP_DIR/kiosk-runtime-utils.sh" "$APP_DIR/kiosk-screen1.sh" "$APP_DIR/kiosk-screen2.sh"
 sudo chown -R "$USER_NAME:$USER_NAME" "$APP_DIR"
 
 echo "== systemd Services =="
