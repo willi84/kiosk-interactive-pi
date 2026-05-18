@@ -36,7 +36,7 @@ Standard-URLs:
 - `screen1` (größerer Screen): Google Slides Präsentation
 - `screen2` (kleinerer Screen): `https://pendler-alarm.de/`
 
-Hinweis zur Touch-Erkennung: Aktuell wird Touch nicht separat per Input-Device-Mapping erkannt, sondern über die Größen-Heuristik abgebildet (`kleinerer Screen = Touch`, sofern das Setup so verdrahtet ist).
+Hinweis zur Touch-Erkennung: Aktuell wird Touch nicht separat per Input-Device-Mapping erkannt, sondern über die Größen-Heuristik abgebildet (`kleinerer Screen = Touch`, sofern das Setup so verdrahtet ist). Das kann abweichen, wenn der Touch-Monitor nicht der kleinere Screen ist oder wenn `xrandr --listmonitors` die Displays nicht korrekt liefert.
 
 Beispiel für gemischte Auflösungen:
 
