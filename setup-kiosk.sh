@@ -90,7 +90,7 @@ if command -v xrandr >/dev/null 2>&1; then
   mapfile -t CONNECTED_MONITORS < <(detect_connected_monitors)
 
   if [ "${#CONNECTED_MONITORS[@]}" -ge 2 ]; then
-    mapfile -t SORTED_MONITORS < <(printf '%s\n' "${CONNECTED_MONITORS[@]}" | sort -t, -k6,6n -k2,2n -k3,3n)
+    mapfile -t SORTED_MONITORS < <(printf '%s\n' "${CONNECTED_MONITORS[@]}" | sort -t, -k6,6n)
     LAST_INDEX=$(( ${#SORTED_MONITORS[@]} - 1 ))
 
     # Kleinstes Display bekommt Screen 1, größtes Display Screen 2.
