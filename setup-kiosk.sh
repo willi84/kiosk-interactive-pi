@@ -59,11 +59,17 @@ detect_monitor_geometry() {
   local monitor_line=""
   local geometry=""
 
+  if ! [[ "$monitor_index" =~ ^[0-9]+$ ]]; then
+    return
+  fi
+
   monitor_line="$(DISPLAY="$display" xrandr --listmonitors 2>/dev/null | tail -n +2 | sed -n "$((monitor_index + 1))p" || true)"
   if [ -z "$monitor_line" ]; then
     return
   fi
 
+  # Expected xrandr --listmonitors line format:
+  # " 1: +HDMI-A-2 1024/150x600/90+1920+0  HDMI-A-2"
   geometry="$(printf '%s\n' "$monitor_line" | sed -nE 's/^[[:space:]]*[0-9]+:.* ([0-9]+)\/[0-9]+x([0-9]+)\/[0-9]+\+([0-9]+)\+([0-9]+).*/\1,\2,\3,\4/p')"
   if [ -z "$geometry" ]; then
     return
@@ -81,7 +87,7 @@ screen_defaults_from_geometry() {
   local pos_x=""
   local pos_y=""
 
-  if [ -n "$geometry" ]; then
+  if [[ "$geometry" =~ ^[0-9]+,[0-9]+,[0-9]+,[0-9]+$ ]]; then
     IFS=',' read -r width height pos_x pos_y <<< "$geometry"
   fi
 
