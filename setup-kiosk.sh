@@ -68,10 +68,18 @@ detect_connected_monitors() {
   while IFS= read -r line; do
     [[ "$line" == *" connected "* ]] || continue
     output="${line%% *}"
-    geometry="$(printf '%s\n' "$line" | grep -oE '[0-9]+x[0-9]+\+[0-9]+\+[0-9]+' | head -n1 || true)"
+    geometry="$(printf '%s\n' "$line" | grep -oE '[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+' | head -n1 || true)"
     [ -n "$geometry" ] || continue
 
-    IFS='x+' read -r width height pos_x pos_y <<< "$geometry"
+    if [[ "$geometry" =~ ^([0-9]+)x([0-9]+)([+-][0-9]+)([+-][0-9]+)$ ]]; then
+      width="${BASH_REMATCH[1]}"
+      height="${BASH_REMATCH[2]}"
+      pos_x="${BASH_REMATCH[3]#+}"
+      pos_y="${BASH_REMATCH[4]#+}"
+    else
+      continue
+    fi
+
     area=$((width * height))
     printf '%s,%s,%s,%s,%s,%s\n' "$output" "$width" "$height" "$pos_x" "$pos_y" "$area"
   done < <(xrandr --query 2>/dev/null || true)
