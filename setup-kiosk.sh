@@ -13,7 +13,8 @@ SCREEN2_PROFILE_DIR="$APP_DIR/chromium-profile-screen2"
 USER_NAME="${SUDO_USER:-$(whoami)}"
 USER_HOME="$(getent passwd "$USER_NAME" | awk -F: '{print $6}')"
 if [ -z "$USER_HOME" ]; then
-  USER_HOME="/home/$USER_NAME"
+  echo "❌ Home-Verzeichnis für User '$USER_NAME' konnte nicht ermittelt werden."
+  exit 1
 fi
 HOME_CONFIG_SYMLINK="$USER_HOME/kiosk-config.env"
 
