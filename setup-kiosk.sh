@@ -7,8 +7,8 @@ SETUP_CONFIG_FILE="$SCRIPT_DIR/kiosk-config.env"
 APP_DIR="/opt/dual-kiosk-display"
 CONFIG_DIR="/etc/dual-kiosk-display"
 CONFIG_FILE="$CONFIG_DIR/config.json"
-SCREEN1_PROFILE_DIR="$APP_DIR/chromium-profile-screen1"
-SCREEN2_PROFILE_DIR="$APP_DIR/chromium-profile-screen2"
+SLIDES_PROFILE_DIR="$APP_DIR/chromium-profile-slides"
+WEBSITE_PROFILE_DIR="$APP_DIR/chromium-profile-website"
 
 USER_NAME="${SUDO_USER:-$(whoami)}"
 USER_HOME="$(getent passwd "$USER_NAME" | cut -d: -f6)"
@@ -33,12 +33,12 @@ fi
 source "$SETUP_CONFIG_FILE"
 
 CURRENT_HOSTNAME="$(hostname)"
-DEFAULT_SCREEN1_URL="https://docs.google.com/presentation/d/1qXXRuxEdrp3nGutWSS2N0uWYt8sRPmL24-GsqXWlJDM/present?loop=true&delayms=10000"
-DEFAULT_SCREEN2_URL="https://pendler-alarm.de/"
-DEFAULT_SCREEN1_WINDOW_POSITION="0,0"
-DEFAULT_SCREEN2_WINDOW_POSITION="1920,0"
-DEFAULT_SCREEN1_WINDOW_SIZE="1920,1080"
-DEFAULT_SCREEN2_WINDOW_SIZE="1920,1080"
+DEFAULT_SLIDES_URL="https://docs.google.com/presentation/d/1qXXRuxEdrp3nGutWSS2N0uWYt8sRPmL24-GsqXWlJDM/present?loop=true&delayms=10000"
+DEFAULT_WEBSITE_URL="https://pendler-alarm.de/"
+DEFAULT_SLIDES_WINDOW_POSITION="0,0"
+DEFAULT_WEBSITE_WINDOW_POSITION="1920,0"
+DEFAULT_SLIDES_WINDOW_SIZE="1920,1080"
+DEFAULT_WEBSITE_WINDOW_SIZE="1920,1080"
 
 resolve_config_value() {
   local value="${1:-}"
@@ -146,44 +146,71 @@ screen_defaults_from_geometry() {
   printf '%s,%s|%s,%s\n' "$pos_x" "$pos_y" "$width" "$height"
 }
 
+# Rückwärtskompatibilität: SCREEN1_URL / SCREEN2_URL → Kontext-Variablen
+if [ -z "${CONTEXT_SLIDES_URL:-}" ] && [ -n "${SCREEN1_URL:-}" ]; then
+  CONTEXT_SLIDES_URL="${SCREEN1_URL}"
+fi
+if [ -z "${CONTEXT_WEBSITE_URL:-}" ] && [ -n "${SCREEN2_URL:-}" ]; then
+  CONTEXT_WEBSITE_URL="${SCREEN2_URL}"
+fi
+# Rückwärtskompatibilität: SCREEN*_DISPLAY / SCREEN*_WINDOW_* → SLIDES_* / WEBSITE_*
+if [ -z "${SLIDES_DISPLAY:-}" ] && [ -n "${SCREEN1_DISPLAY:-}" ]; then
+  SLIDES_DISPLAY="${SCREEN1_DISPLAY}"
+fi
+if [ -z "${WEBSITE_DISPLAY:-}" ] && [ -n "${SCREEN2_DISPLAY:-}" ]; then
+  WEBSITE_DISPLAY="${SCREEN2_DISPLAY}"
+fi
+if [ -z "${SLIDES_WINDOW_POSITION:-}" ] && [ -n "${SCREEN1_WINDOW_POSITION:-}" ]; then
+  SLIDES_WINDOW_POSITION="${SCREEN1_WINDOW_POSITION}"
+fi
+if [ -z "${WEBSITE_WINDOW_POSITION:-}" ] && [ -n "${SCREEN2_WINDOW_POSITION:-}" ]; then
+  WEBSITE_WINDOW_POSITION="${SCREEN2_WINDOW_POSITION}"
+fi
+if [ -z "${SLIDES_WINDOW_SIZE:-}" ] && [ -n "${SCREEN1_WINDOW_SIZE:-}" ]; then
+  SLIDES_WINDOW_SIZE="${SCREEN1_WINDOW_SIZE}"
+fi
+if [ -z "${WEBSITE_WINDOW_SIZE:-}" ] && [ -n "${SCREEN2_WINDOW_SIZE:-}" ]; then
+  WEBSITE_WINDOW_SIZE="${SCREEN2_WINDOW_SIZE}"
+fi
+
 KIOSK_HOSTNAME="$(resolve_config_value "${KIOSK_HOSTNAME:-}" "<HOSTNAME>" "$CURRENT_HOSTNAME")"
-SCREEN1_URL="$(resolve_config_value "${SCREEN1_URL:-}" "<https://example.com>" "$DEFAULT_SCREEN1_URL")"
-SCREEN2_URL="$(resolve_config_value "${SCREEN2_URL:-}" "<https://example.org>" "$DEFAULT_SCREEN2_URL")"
+CONTEXT_SLIDES_URL="$(resolve_config_value "${CONTEXT_SLIDES_URL:-}" "<https://example.com>" "$DEFAULT_SLIDES_URL")"
+CONTEXT_WEBSITE_URL="$(resolve_config_value "${CONTEXT_WEBSITE_URL:-}" "<https://example.org>" "$DEFAULT_WEBSITE_URL")"
 WIFI_SSID="$(resolve_config_value "${WIFI_SSID:-}" "<SSID>" "")"
 WIFI_PASSWORD="$(resolve_config_value "${WIFI_PASSWORD:-}" "<PASSWORD>" "")"
 WIFI_HIDDEN="${WIFI_HIDDEN:-false}"
 
-SCREEN1_DISPLAY="${SCREEN1_DISPLAY:-:0}"
-SCREEN2_DISPLAY="${SCREEN2_DISPLAY:-:0}"
+SLIDES_DISPLAY="${SLIDES_DISPLAY:-:0}"
+WEBSITE_DISPLAY="${WEBSITE_DISPLAY:-:0}"
 
-SCREEN1_MONITOR_COUNT="$(detect_monitor_count "$SCREEN1_DISPLAY")"
-SCREEN1_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN1_DISPLAY" 0)"
-SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" 1)"
+SLIDES_MONITOR_COUNT="$(detect_monitor_count "$SLIDES_DISPLAY")"
+SLIDES_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SLIDES_DISPLAY" 0)"
+WEBSITE_MONITOR_GEOMETRY="$(detect_monitor_geometry "$WEBSITE_DISPLAY" 1)"
 
-if [ "$SCREEN1_DISPLAY" = "$SCREEN2_DISPLAY" ] && [ -n "$SCREEN1_MONITOR_COUNT" ] && [ "$SCREEN1_MONITOR_COUNT" -ge 2 ]; then
-  SCREEN1_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN1_DISPLAY" largest)"
-  SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" smallest)"
-elif [ "$SCREEN2_DISPLAY" != "$SCREEN1_DISPLAY" ]; then
-  SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" 0)"
+if [ "$SLIDES_DISPLAY" = "$WEBSITE_DISPLAY" ] && [ -n "$SLIDES_MONITOR_COUNT" ] && [ "$SLIDES_MONITOR_COUNT" -ge 2 ]; then
+  SLIDES_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SLIDES_DISPLAY" largest)"
+  WEBSITE_MONITOR_GEOMETRY="$(detect_monitor_geometry "$WEBSITE_DISPLAY" smallest)"
+elif [ "$WEBSITE_DISPLAY" != "$SLIDES_DISPLAY" ]; then
+  WEBSITE_MONITOR_GEOMETRY="$(detect_monitor_geometry "$WEBSITE_DISPLAY" 0)"
 fi
 
-SCREEN1_DEFAULTS="$(screen_defaults_from_geometry "$SCREEN1_MONITOR_GEOMETRY" "$DEFAULT_SCREEN1_WINDOW_POSITION" "$DEFAULT_SCREEN1_WINDOW_SIZE")"
-SCREEN2_DEFAULTS="$(screen_defaults_from_geometry "$SCREEN2_MONITOR_GEOMETRY" "$DEFAULT_SCREEN2_WINDOW_POSITION" "$DEFAULT_SCREEN2_WINDOW_SIZE")"
+SLIDES_DEFAULTS="$(screen_defaults_from_geometry "$SLIDES_MONITOR_GEOMETRY" "$DEFAULT_SLIDES_WINDOW_POSITION" "$DEFAULT_SLIDES_WINDOW_SIZE")"
+WEBSITE_DEFAULTS="$(screen_defaults_from_geometry "$WEBSITE_MONITOR_GEOMETRY" "$DEFAULT_WEBSITE_WINDOW_POSITION" "$DEFAULT_WEBSITE_WINDOW_SIZE")"
 
-SCREEN1_DEFAULT_POSITION="${SCREEN1_DEFAULTS%%|*}"
-SCREEN1_DEFAULT_SIZE="${SCREEN1_DEFAULTS##*|}"
-SCREEN2_DEFAULT_POSITION="${SCREEN2_DEFAULTS%%|*}"
-SCREEN2_DEFAULT_SIZE="${SCREEN2_DEFAULTS##*|}"
+SLIDES_DEFAULT_POSITION="${SLIDES_DEFAULTS%%|*}"
+SLIDES_DEFAULT_SIZE="${SLIDES_DEFAULTS##*|}"
+WEBSITE_DEFAULT_POSITION="${WEBSITE_DEFAULTS%%|*}"
+WEBSITE_DEFAULT_SIZE="${WEBSITE_DEFAULTS##*|}"
 
-SCREEN1_WINDOW_POSITION="${SCREEN1_WINDOW_POSITION:-$SCREEN1_DEFAULT_POSITION}"
-SCREEN2_WINDOW_POSITION="${SCREEN2_WINDOW_POSITION:-$SCREEN2_DEFAULT_POSITION}"
-SCREEN1_WINDOW_SIZE="${SCREEN1_WINDOW_SIZE:-$SCREEN1_DEFAULT_SIZE}"
-SCREEN2_WINDOW_SIZE="${SCREEN2_WINDOW_SIZE:-$SCREEN2_DEFAULT_SIZE}"
+SLIDES_WINDOW_POSITION="${SLIDES_WINDOW_POSITION:-$SLIDES_DEFAULT_POSITION}"
+WEBSITE_WINDOW_POSITION="${WEBSITE_WINDOW_POSITION:-$WEBSITE_DEFAULT_POSITION}"
+SLIDES_WINDOW_SIZE="${SLIDES_WINDOW_SIZE:-$SLIDES_DEFAULT_SIZE}"
+WEBSITE_WINDOW_SIZE="${WEBSITE_WINDOW_SIZE:-$WEBSITE_DEFAULT_SIZE}"
 
-IFS=',' read -r SCREEN1_POS_X SCREEN1_POS_Y <<< "$SCREEN1_WINDOW_POSITION"
-IFS=',' read -r SCREEN2_POS_X SCREEN2_POS_Y <<< "$SCREEN2_WINDOW_POSITION"
-IFS=',' read -r SCREEN1_WIDTH SCREEN1_HEIGHT <<< "$SCREEN1_WINDOW_SIZE"
-IFS=',' read -r SCREEN2_WIDTH SCREEN2_HEIGHT <<< "$SCREEN2_WINDOW_SIZE"
+IFS=',' read -r SLIDES_POS_X SLIDES_POS_Y <<< "$SLIDES_WINDOW_POSITION"
+IFS=',' read -r WEBSITE_POS_X WEBSITE_POS_Y <<< "$WEBSITE_WINDOW_POSITION"
+IFS=',' read -r SLIDES_WIDTH SLIDES_HEIGHT <<< "$SLIDES_WINDOW_SIZE"
+IFS=',' read -r WEBSITE_WIDTH WEBSITE_HEIGHT <<< "$WEBSITE_WINDOW_SIZE"
 
 echo "== Hostname =="
 if [ "$(hostname)" != "$KIOSK_HOSTNAME" ]; then
@@ -207,8 +234,8 @@ fi
 
 echo "✅ Chromium Paket: $CHROMIUM_PACKAGE"
 echo "✅ Chromium Command: $CHROMIUM_CMD"
-if [ -n "$SCREEN1_MONITOR_GEOMETRY" ] || [ -n "$SCREEN2_MONITOR_GEOMETRY" ]; then
-  echo "✅ Erkannte Monitor-Geometrie: screen1=${SCREEN1_MONITOR_GEOMETRY:-n/a} screen2=${SCREEN2_MONITOR_GEOMETRY:-n/a}"
+if [ -n "$SLIDES_MONITOR_GEOMETRY" ] || [ -n "$WEBSITE_MONITOR_GEOMETRY" ]; then
+  echo "✅ Erkannte Monitor-Geometrie: slides=${SLIDES_MONITOR_GEOMETRY:-n/a} website=${WEBSITE_MONITOR_GEOMETRY:-n/a}"
 else
   echo "ℹ️ Keine Monitor-Geometrie via xrandr erkannt – nutze Standardwerte/Config."
 fi
@@ -224,7 +251,7 @@ sudo apt install -y \
 
 echo "== Verzeichnisse =="
 sudo mkdir -p "$APP_DIR" "$CONFIG_DIR"
-sudo mkdir -p "$SCREEN1_PROFILE_DIR" "$SCREEN2_PROFILE_DIR"
+sudo mkdir -p "$SLIDES_PROFILE_DIR" "$WEBSITE_PROFILE_DIR"
 
 echo "== Config Symlink im Home-Verzeichnis =="
 sudo -u "$USER_NAME" ln -sfn "$SETUP_CONFIG_FILE" "$HOME_CONFIG_SYMLINK"
@@ -233,17 +260,19 @@ echo "✅ Symlink erstellt: $HOME_CONFIG_SYMLINK -> $SETUP_CONFIG_FILE"
 echo "== Kiosk Config =="
 sudo tee "$CONFIG_FILE" >/dev/null <<EOF
 {
-  "screen1": {
-    "url": "$SCREEN1_URL",
-    "display": "$SCREEN1_DISPLAY",
-    "windowPosition": "$SCREEN1_WINDOW_POSITION",
-    "windowSize": "$SCREEN1_WINDOW_SIZE"
-  },
-  "screen2": {
-    "url": "$SCREEN2_URL",
-    "display": "$SCREEN2_DISPLAY",
-    "windowPosition": "$SCREEN2_WINDOW_POSITION",
-    "windowSize": "$SCREEN2_WINDOW_SIZE"
+  "contexts": {
+    "slides": {
+      "url": "$CONTEXT_SLIDES_URL",
+      "display": "$SLIDES_DISPLAY",
+      "windowPosition": "$SLIDES_WINDOW_POSITION",
+      "windowSize": "$SLIDES_WINDOW_SIZE"
+    },
+    "website": {
+      "url": "$CONTEXT_WEBSITE_URL",
+      "display": "$WEBSITE_DISPLAY",
+      "windowPosition": "$WEBSITE_WINDOW_POSITION",
+      "windowSize": "$WEBSITE_WINDOW_SIZE"
+    }
   },
   "chromiumCommand": "$CHROMIUM_CMD"
 }
@@ -264,19 +293,19 @@ else
   echo "ℹ️ Kein WLAN in kiosk-config.env definiert"
 fi
 
-echo "== kiosk-screen1.sh =="
-sudo tee "$APP_DIR/kiosk-screen1.sh" >/dev/null <<'EOF'
+echo "== kiosk-slides.sh =="
+sudo tee "$APP_DIR/kiosk-slides.sh" >/dev/null <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
 CONFIG_FILE="/etc/dual-kiosk-display/config.json"
 
-URL="$(jq -r '.screen1.url' "$CONFIG_FILE")"
-DISPLAY_VALUE="$(jq -r '.screen1.display // ":0"' "$CONFIG_FILE")"
+URL="$(jq -r '.contexts.slides.url' "$CONFIG_FILE")"
+DISPLAY_VALUE="$(jq -r '.contexts.slides.display // ":0"' "$CONFIG_FILE")"
 CHROMIUM_CMD="$(jq -r '.chromiumCommand // "chromium"' "$CONFIG_FILE")"
-WINDOW_POSITION="$(jq -r '.screen1.windowPosition // "0,0"' "$CONFIG_FILE")"
-WINDOW_SIZE="$(jq -r '.screen1.windowSize // "1920,1080"' "$CONFIG_FILE")"
-PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen1"
+WINDOW_POSITION="$(jq -r '.contexts.slides.windowPosition // "0,0"' "$CONFIG_FILE")"
+WINDOW_SIZE="$(jq -r '.contexts.slides.windowSize // "1920,1080"' "$CONFIG_FILE")"
+PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-slides"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
@@ -289,8 +318,8 @@ SAFE_URL_BASE="$(printf '%s\n' "$URL_BASE" | sed -E 's#(://)[^/@]+@#\1***@#')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
-echo "[$(date -Is)] [kiosk-screen1] Start requested (pid=$$)"
-echo "[$(date -Is)] [kiosk-screen1] URL_BASE=$SAFE_URL_BASE URL_HAS_QUERY=$URL_HAS_QUERY URL_HAS_FRAGMENT=$URL_HAS_FRAGMENT DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+echo "[$(date -Is)] [kiosk-slides] Start requested (pid=$$)"
+echo "[$(date -Is)] [kiosk-slides] URL_BASE=$SAFE_URL_BASE URL_HAS_QUERY=$URL_HAS_QUERY URL_HAS_FRAGMENT=$URL_HAS_FRAGMENT DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
 
 xset s off || true
 xset -dpms || true
@@ -308,19 +337,19 @@ exec "$CHROMIUM_CMD" \
   "$URL"
 EOF
 
-echo "== kiosk-screen2.sh =="
-sudo tee "$APP_DIR/kiosk-screen2.sh" >/dev/null <<'EOF'
+echo "== kiosk-website.sh =="
+sudo tee "$APP_DIR/kiosk-website.sh" >/dev/null <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
 CONFIG_FILE="/etc/dual-kiosk-display/config.json"
 
-URL="$(jq -r '.screen2.url' "$CONFIG_FILE")"
-DISPLAY_VALUE="$(jq -r '.screen2.display // ":0"' "$CONFIG_FILE")"
+URL="$(jq -r '.contexts.website.url' "$CONFIG_FILE")"
+DISPLAY_VALUE="$(jq -r '.contexts.website.display // ":0"' "$CONFIG_FILE")"
 CHROMIUM_CMD="$(jq -r '.chromiumCommand // "chromium"' "$CONFIG_FILE")"
-WINDOW_POSITION="$(jq -r '.screen2.windowPosition // "1920,0"' "$CONFIG_FILE")"
-WINDOW_SIZE="$(jq -r '.screen2.windowSize // "1920,1080"' "$CONFIG_FILE")"
-PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen2"
+WINDOW_POSITION="$(jq -r '.contexts.website.windowPosition // "1920,0"' "$CONFIG_FILE")"
+WINDOW_SIZE="$(jq -r '.contexts.website.windowSize // "1920,1080"' "$CONFIG_FILE")"
+PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-website"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
@@ -333,8 +362,8 @@ SAFE_URL_BASE="$(printf '%s\n' "$URL_BASE" | sed -E 's#(://)[^/@]+@#\1***@#')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
-echo "[$(date -Is)] [kiosk-screen2] Start requested (pid=$$)"
-echo "[$(date -Is)] [kiosk-screen2] URL_BASE=$SAFE_URL_BASE URL_HAS_QUERY=$URL_HAS_QUERY URL_HAS_FRAGMENT=$URL_HAS_FRAGMENT DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+echo "[$(date -Is)] [kiosk-website] Start requested (pid=$$)"
+echo "[$(date -Is)] [kiosk-website] URL_BASE=$SAFE_URL_BASE URL_HAS_QUERY=$URL_HAS_QUERY URL_HAS_FRAGMENT=$URL_HAS_FRAGMENT DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
 
 xset s off || true
 xset -dpms || true
@@ -353,43 +382,43 @@ exec "$CHROMIUM_CMD" \
 EOF
 
 echo "== Rechte =="
-sudo chmod +x "$APP_DIR/kiosk-screen1.sh" "$APP_DIR/kiosk-screen2.sh"
+sudo chmod +x "$APP_DIR/kiosk-slides.sh" "$APP_DIR/kiosk-website.sh"
 sudo chown -R "$USER_NAME:$USER_NAME" "$APP_DIR"
 
 echo "== systemd Services =="
-sudo tee /etc/systemd/system/kiosk-screen1.service >/dev/null <<EOF
+sudo tee /etc/systemd/system/kiosk-slides.service >/dev/null <<EOF
 [Unit]
-Description=Kiosk Screen 1
+Description=Kiosk Context: slides
 After=graphical.target network-online.target
 Wants=network-online.target
 
 [Service]
 User=$USER_NAME
-ExecStart=$APP_DIR/kiosk-screen1.sh
+ExecStart=$APP_DIR/kiosk-slides.sh
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=kiosk-screen1
+SyslogIdentifier=kiosk-slides
 
 [Install]
 WantedBy=graphical.target
 EOF
 
-sudo tee /etc/systemd/system/kiosk-screen2.service >/dev/null <<EOF
+sudo tee /etc/systemd/system/kiosk-website.service >/dev/null <<EOF
 [Unit]
-Description=Kiosk Screen 2
+Description=Kiosk Context: website
 After=graphical.target network-online.target
 Wants=network-online.target
 
 [Service]
 User=$USER_NAME
-ExecStart=$APP_DIR/kiosk-screen2.sh
+ExecStart=$APP_DIR/kiosk-website.sh
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=kiosk-screen2
+SyslogIdentifier=kiosk-website
 
 [Install]
 WantedBy=graphical.target
@@ -397,14 +426,14 @@ EOF
 
 echo "== Enable Services =="
 sudo systemctl daemon-reload
-sudo systemctl enable kiosk-screen1 kiosk-screen2
-sudo systemctl restart kiosk-screen1 kiosk-screen2
+sudo systemctl enable kiosk-slides kiosk-website
+sudo systemctl restart kiosk-slides kiosk-website
 
 echo "== DONE =="
 echo "👤 User: $USER_NAME"
 echo "🏷️ Hostname: $KIOSK_HOSTNAME"
-echo "🌐 Screen 1 URL: $SCREEN1_URL"
-echo "🌐 Screen 2 URL: $SCREEN2_URL"
+echo "🖥️ Kontext slides URL: $CONTEXT_SLIDES_URL"
+echo "🌐 Kontext website URL: $CONTEXT_WEBSITE_URL"
 echo "🔗 Config Symlink: $HOME_CONFIG_SYMLINK"
 echo "📡 IP:"
 hostname -I
