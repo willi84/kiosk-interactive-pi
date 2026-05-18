@@ -78,7 +78,7 @@ journalctl -t kiosk-screen2 -n 50 --no-pager
 
 Die Skripte loggen beim Start u. a.:
 
-- URL (ohne Query/Fragment, mit maskierter User-Info)
+- URL (mit maskierter User-Info sowie redacted Query/Fragment)
 - DISPLAY
 - Fensterposition / Fenstergröße
 - User-Data-Directory
@@ -89,6 +89,8 @@ Neustart-Schleifen erkennen:
 journalctl -u kiosk-screen1 --since "15 minutes ago" | grep -E 'Start requested|Main process exited|Failed|Scheduled restart'
 journalctl -u kiosk-screen2 --since "15 minutes ago" | grep -E 'Start requested|Main process exited|Failed|Scheduled restart'
 ```
+
+Hinweis: Der Filter `Start requested` bezieht sich auf die Log-Zeile aus den generierten `kiosk-screen*.sh`-Skripten.
 
 ## Verifizieren, dass beide Screens unterschiedliche Inhalte zeigen
 
