@@ -16,10 +16,10 @@ pi plugin willi84/kiosk-interactive-pi
 
 `setup-kiosk.sh` liest `kiosk-config.env` (im Repo-Verzeichnis) ein und erzeugt daraus:
 
-- `/etc/dual-kiosk-display/config.json` (Runtime-Konfiguration)
-- `/opt/dual-kiosk-display/kiosk-screen1.sh`
-- `/opt/dual-kiosk-display/kiosk-screen2.sh`
-- systemd-Services `kiosk-screen1` und `kiosk-screen2`
+- `/etc/dual-kiosk-display/config.json` (Runtime-Konfiguration mit Kontexten)
+- `/opt/dual-kiosk-display/kiosk-slides.sh`
+- `/opt/dual-kiosk-display/kiosk-website.sh`
+- systemd-Services `kiosk-slides` und `kiosk-website`
 - Symlink im User-Home: `~/kiosk-config.env` → lokale `kiosk-config.env`
 
 Danach Setup ausführen:
@@ -29,36 +29,49 @@ cd /pfad/zum/plugin
 sudo ./setup-kiosk.sh
 ```
 
-Wenn `SCREEN1_WINDOW_POSITION`, `SCREEN1_WINDOW_SIZE`, `SCREEN2_WINDOW_POSITION` oder `SCREEN2_WINDOW_SIZE` in `kiosk-config.env` nicht gesetzt sind, übernimmt `setup-kiosk.sh` nach Möglichkeit die aktuelle Monitor-Geometrie aus `xrandr --listmonitors`. Bei zwei Monitoren auf demselben `DISPLAY` wird `screen1` automatisch auf den größeren und `screen2` auf den kleineren Monitor gelegt. Ohne erkennbare X-Layout-Infos bleiben die bisherigen Standardwerte aktiv.
+### Kontext-Konfiguration
+
+Die URL-Konfiguration erfolgt über Kontexte in `kiosk-config.env`:
+
+| Variable              | Kontext   | Beschreibung                              |
+|-----------------------|-----------|-------------------------------------------|
+| `CONTEXT_SLIDES_URL`  | `slides`  | Google Slides Präsentation (großer Monitor) |
+| `CONTEXT_WEBSITE_URL` | `website` | Website (kleiner Monitor / Touch)         |
+
+Wenn `SLIDES_WINDOW_POSITION`, `SLIDES_WINDOW_SIZE`, `WEBSITE_WINDOW_POSITION` oder `WEBSITE_WINDOW_SIZE` in `kiosk-config.env` nicht gesetzt sind, übernimmt `setup-kiosk.sh` nach Möglichkeit die aktuelle Monitor-Geometrie aus `xrandr --listmonitors`. Bei zwei Monitoren auf demselben `DISPLAY` wird `slides` automatisch auf den größeren und `website` auf den kleineren Monitor gelegt. Ohne erkennbare X-Layout-Infos bleiben die bisherigen Standardwerte aktiv.
 
 Standard-URLs:
 
-- `screen1` (größerer Screen): Google Slides Präsentation
-- `screen2` (kleinerer Screen): `https://pendler-alarm.de/`
+- `slides` (größerer Screen): Google Slides Präsentation
+- `website` (kleinerer Screen): `https://pendler-alarm.de/`
 
 Hinweis zur Touch-Erkennung: Aktuell wird Touch nicht separat per Input-Device-Mapping erkannt, sondern über die Größen-Heuristik abgebildet (`kleinerer Screen = Touch`, sofern das Setup so verdrahtet ist). Das kann abweichen, wenn der Touch-Monitor nicht der kleinere Screen ist oder wenn `xrandr --listmonitors` die Displays nicht korrekt liefert.
 
 Beispiel für gemischte Auflösungen:
 
 ```dotenv
-SCREEN1_DISPLAY=:0
-SCREEN1_WINDOW_POSITION=0,0
-SCREEN1_WINDOW_SIZE=1920,1080
+SLIDES_DISPLAY=:0
+SLIDES_WINDOW_POSITION=0,0
+SLIDES_WINDOW_SIZE=1920,1080
 
-SCREEN2_DISPLAY=:0
-SCREEN2_WINDOW_POSITION=1920,0
-SCREEN2_WINDOW_SIZE=1024,600
+WEBSITE_DISPLAY=:0
+WEBSITE_WINDOW_POSITION=1920,0
+WEBSITE_WINDOW_SIZE=1024,600
 ```
 
 Die WLAN-Konfiguration bleibt unverändert über `WIFI_SSID`, `WIFI_PASSWORD` und `WIFI_HIDDEN` in `kiosk-config.env` steuerbar.
 
+### Rückwärtskompatibilität
+
+Die alten Variablen `SCREEN1_URL` und `SCREEN2_URL` werden weiterhin unterstützt: Sind `CONTEXT_SLIDES_URL` / `CONTEXT_WEBSITE_URL` nicht gesetzt, verwendet `setup-kiosk.sh` automatisch `SCREEN1_URL` bzw. `SCREEN2_URL` als Fallback. Entsprechendes gilt für `SCREEN1_DISPLAY`, `SCREEN1_WINDOW_POSITION`, `SCREEN1_WINDOW_SIZE` usw.
+
 ## Root Cause + Fix (zwei Browser-Sessions)
 
 Das Problem "Opening in existing browser session" kam durch geteilte Chromium-Session/Profile.  
-Fix: beide Screens verwenden jetzt eigene Profile via `--user-data-dir`:
+Fix: beide Kontexte verwenden jetzt eigene Profile via `--user-data-dir`:
 
-- Screen 1: `/opt/dual-kiosk-display/chromium-profile-screen1`
-- Screen 2: `/opt/dual-kiosk-display/chromium-profile-screen2`
+- Kontext `slides`: `/opt/dual-kiosk-display/chromium-profile-slides`
+- Kontext `website`: `/opt/dual-kiosk-display/chromium-profile-website`
 
 Dadurch laufen zwei unabhängige Chromium-Hauptprozesse stabiler parallel.
 
@@ -67,8 +80,8 @@ Dadurch laufen zwei unabhängige Chromium-Hauptprozesse stabiler parallel.
 Service-Status:
 
 ```bash
-systemctl status kiosk-screen1 --no-pager
-systemctl status kiosk-screen2 --no-pager
+systemctl status kiosk-slides --no-pager
+systemctl status kiosk-website --no-pager
 ```
 
 Aktive Konfiguration prüfen:
@@ -80,7 +93,7 @@ sudo jq . /etc/dual-kiosk-display/config.json
 Prozesse inkl. URL/Window/User-Data-Dir prüfen:
 
 ```bash
-ps -efww | grep -E 'kiosk-screen|chromium.*--kiosk|--user-data-dir' | grep -v grep
+ps -efww | grep -E 'kiosk-(slides|website)|chromium.*--kiosk|--user-data-dir' | grep -v grep
 ```
 
 ## Logs / Debug / Restart-Schleifen
@@ -88,15 +101,15 @@ ps -efww | grep -E 'kiosk-screen|chromium.*--kiosk|--user-data-dir' | grep -v gr
 Live-Logs pro Service:
 
 ```bash
-journalctl -u kiosk-screen1 -f
-journalctl -u kiosk-screen2 -f
+journalctl -u kiosk-slides -f
+journalctl -u kiosk-website -f
 ```
 
 Gezielt die Start-Diagnose aus den Skripten:
 
 ```bash
-journalctl -t kiosk-screen1 -n 50 --no-pager
-journalctl -t kiosk-screen2 -n 50 --no-pager
+journalctl -t kiosk-slides -n 50 --no-pager
+journalctl -t kiosk-website -n 50 --no-pager
 ```
 
 Die Skripte loggen beim Start u. a.:
@@ -109,18 +122,18 @@ Die Skripte loggen beim Start u. a.:
 Neustart-Schleifen erkennen:
 
 ```bash
-journalctl -u kiosk-screen1 --since "15 minutes ago" | grep -E 'Start requested|Main process exited|Failed|Scheduled restart'
-journalctl -u kiosk-screen2 --since "15 minutes ago" | grep -E 'Start requested|Main process exited|Failed|Scheduled restart'
+journalctl -u kiosk-slides --since "15 minutes ago" | grep -E 'Start requested|Main process exited|Failed|Scheduled restart'
+journalctl -u kiosk-website --since "15 minutes ago" | grep -E 'Start requested|Main process exited|Failed|Scheduled restart'
 ```
 
-Hinweis: Der Filter `Start requested` bezieht sich auf die Log-Zeile aus den generierten `kiosk-screen*.sh`-Skripten.
+Hinweis: Der Filter `Start requested` bezieht sich auf die Log-Zeile aus den generierten `kiosk-*.sh`-Skripten.
 
-## Verifizieren, dass beide Screens unterschiedliche Inhalte zeigen
+## Verifizieren, dass beide Kontexte unterschiedliche Inhalte zeigen
 
 URLs/Fensterpositionen aus Runtime-Config:
 
 ```bash
-sudo jq -r '.screen1.url, .screen2.url, .screen1.windowPosition, .screen2.windowPosition, .screen1.display, .screen2.display' /etc/dual-kiosk-display/config.json
+sudo jq -r '.contexts.slides.url, .contexts.website.url, .contexts.slides.windowPosition, .contexts.website.windowPosition, .contexts.slides.display, .contexts.website.display' /etc/dual-kiosk-display/config.json
 ```
 
 Monitor-/Layout-Check:
@@ -141,15 +154,15 @@ Monitors: 2
 Dazu passende Runtime-Config:
 
 ```bash
-sudo jq '.screen1, .screen2' /etc/dual-kiosk-display/config.json
+sudo jq '.contexts.slides, .contexts.website' /etc/dual-kiosk-display/config.json
 ```
 
 Erwartete Werte im Beispiel oben:
 
-- `screen1.windowPosition`: `0,0`
-- `screen1.windowSize`: `1920,1080`
-- `screen2.windowPosition`: `1920,0`
-- `screen2.windowSize`: `1024,600`
+- `contexts.slides.windowPosition`: `0,0`
+- `contexts.slides.windowSize`: `1920,1080`
+- `contexts.website.windowPosition`: `1920,0`
+- `contexts.website.windowSize`: `1024,600`
 
 Optional (Fensterpositionen live prüfen):
 
