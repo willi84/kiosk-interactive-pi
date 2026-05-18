@@ -158,15 +158,7 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen1"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
-
-sanitize_url_for_log() {
-  local raw_url="$1"
-  local without_fragment="${raw_url%%#*}"
-  local without_query="${without_fragment%%\?*}"
-  printf '%s\n' "$without_query" | sed -E 's#(://)[^/@]+@#\1***@#'
-}
-
-SAFE_URL="$(sanitize_url_for_log "$URL")"
+SAFE_URL="$(printf '%s\n' "${URL%%#*}" | sed -E 's/\?.*$//' | sed -E 's#(://)[^/@]+@#\1***@#')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
@@ -205,15 +197,7 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen2"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
-
-sanitize_url_for_log() {
-  local raw_url="$1"
-  local without_fragment="${raw_url%%#*}"
-  local without_query="${without_fragment%%\?*}"
-  printf '%s\n' "$without_query" | sed -E 's#(://)[^/@]+@#\1***@#'
-}
-
-SAFE_URL="$(sanitize_url_for_log "$URL")"
+SAFE_URL="$(printf '%s\n' "${URL%%#*}" | sed -E 's/\?.*$//' | sed -E 's#(://)[^/@]+@#\1***@#')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
