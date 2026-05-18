@@ -7,6 +7,8 @@ SETUP_CONFIG_FILE="$SCRIPT_DIR/kiosk-config.env"
 APP_DIR="/opt/dual-kiosk-display"
 CONFIG_DIR="/etc/dual-kiosk-display"
 CONFIG_FILE="$CONFIG_DIR/config.json"
+SCREEN1_PROFILE_DIR="$APP_DIR/chromium-profile-screen1"
+SCREEN2_PROFILE_DIR="$APP_DIR/chromium-profile-screen2"
 
 USER_NAME="${SUDO_USER:-$(whoami)}"
 USER_HOME="$(getent passwd "$USER_NAME" | awk -F: '{print $6}')"
@@ -99,6 +101,7 @@ sudo apt install -y \
 
 echo "== Verzeichnisse =="
 sudo mkdir -p "$APP_DIR" "$CONFIG_DIR"
+sudo mkdir -p "$SCREEN1_PROFILE_DIR" "$SCREEN2_PROFILE_DIR"
 
 echo "== Config Symlink im Home-Verzeichnis =="
 if [ "$(whoami)" = "$USER_NAME" ]; then
@@ -165,7 +168,6 @@ xset s off || true
 xset -dpms || true
 xset s noblank || true
 unclutter -idle 0.5 &
-mkdir -p "$PROFILE_DIR"
 
 exec "$CHROMIUM_CMD" \
   --noerrdialogs \
@@ -201,7 +203,6 @@ xset s off || true
 xset -dpms || true
 xset s noblank || true
 unclutter -idle 0.5 &
-mkdir -p "$PROFILE_DIR"
 
 exec "$CHROMIUM_CMD" \
   --noerrdialogs \
