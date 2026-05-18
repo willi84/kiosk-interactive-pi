@@ -372,7 +372,7 @@ if [ -x "$LAYOUT_SCRIPT" ]; then
 fi
 
 if [ -x "$RUNTIME_UTILS" ]; then
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090 # runtime path generated during setup
   source "$RUNTIME_UTILS"
 fi
 
@@ -442,7 +442,7 @@ if [ -x "$LAYOUT_SCRIPT" ]; then
 fi
 
 if [ -x "$RUNTIME_UTILS" ]; then
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090 # runtime path generated during setup
   source "$RUNTIME_UTILS"
 fi
 
