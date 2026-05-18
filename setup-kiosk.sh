@@ -13,7 +13,7 @@ SCREEN2_PROFILE_DIR="$APP_DIR/chromium-profile-screen2"
 USER_NAME="${SUDO_USER:-$(whoami)}"
 USER_HOME="$(getent passwd "$USER_NAME" | awk -F: '{print $6}')"
 if [ -z "$USER_HOME" ]; then
-  USER_HOME="$HOME"
+  USER_HOME="/home/$USER_NAME"
 fi
 HOME_CONFIG_SYMLINK="$USER_HOME/kiosk-config.env"
 
@@ -104,11 +104,7 @@ sudo mkdir -p "$APP_DIR" "$CONFIG_DIR"
 sudo mkdir -p "$SCREEN1_PROFILE_DIR" "$SCREEN2_PROFILE_DIR"
 
 echo "== Config Symlink im Home-Verzeichnis =="
-if [ "$(whoami)" = "$USER_NAME" ]; then
-  ln -sfn "$SETUP_CONFIG_FILE" "$HOME_CONFIG_SYMLINK"
-else
-  sudo -u "$USER_NAME" ln -sfn "$SETUP_CONFIG_FILE" "$HOME_CONFIG_SYMLINK"
-fi
+sudo -u "$USER_NAME" ln -sfn "$SETUP_CONFIG_FILE" "$HOME_CONFIG_SYMLINK"
 echo "✅ Symlink erstellt: $HOME_CONFIG_SYMLINK -> $SETUP_CONFIG_FILE"
 
 echo "== Kiosk Config =="
