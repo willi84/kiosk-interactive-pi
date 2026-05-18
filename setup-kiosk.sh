@@ -158,12 +158,17 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen1"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
-SAFE_URL="$(printf '%s\n' "$URL" | sed -E 's#(://)[^/@]+@#\1***@#' | sed -E 's/\?[^#]*/?<redacted>/; s/#.*/#<redacted>/')"
+URL_BASE="${URL%%[\?#]*}"
+URL_HAS_QUERY="no"
+URL_HAS_FRAGMENT="no"
+if [[ "$URL" == *\?* ]]; then URL_HAS_QUERY="yes"; fi
+if [[ "$URL" == *\#* ]]; then URL_HAS_FRAGMENT="yes"; fi
+SAFE_URL_BASE="$(printf '%s\n' "$URL_BASE" | sed -E 's#(://)[^/@]+@#\1***@#')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
 echo "[$(date -Is)] [kiosk-screen1] Start requested (pid=$$)"
-echo "[$(date -Is)] [kiosk-screen1] URL=$SAFE_URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+echo "[$(date -Is)] [kiosk-screen1] URL_BASE=$SAFE_URL_BASE URL_HAS_QUERY=$URL_HAS_QUERY URL_HAS_FRAGMENT=$URL_HAS_FRAGMENT DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
 
 xset s off || true
 xset -dpms || true
@@ -197,12 +202,17 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen2"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
-SAFE_URL="$(printf '%s\n' "$URL" | sed -E 's#(://)[^/@]+@#\1***@#' | sed -E 's/\?[^#]*/?<redacted>/; s/#.*/#<redacted>/')"
+URL_BASE="${URL%%[\?#]*}"
+URL_HAS_QUERY="no"
+URL_HAS_FRAGMENT="no"
+if [[ "$URL" == *\?* ]]; then URL_HAS_QUERY="yes"; fi
+if [[ "$URL" == *\#* ]]; then URL_HAS_FRAGMENT="yes"; fi
+SAFE_URL_BASE="$(printf '%s\n' "$URL_BASE" | sed -E 's#(://)[^/@]+@#\1***@#')"
 
 export DISPLAY="$DISPLAY_VALUE"
 
 echo "[$(date -Is)] [kiosk-screen2] Start requested (pid=$$)"
-echo "[$(date -Is)] [kiosk-screen2] URL=$SAFE_URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+echo "[$(date -Is)] [kiosk-screen2] URL_BASE=$SAFE_URL_BASE URL_HAS_QUERY=$URL_HAS_QUERY URL_HAS_FRAGMENT=$URL_HAS_FRAGMENT DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
 
 xset s off || true
 xset -dpms || true
