@@ -11,7 +11,7 @@ SCREEN1_PROFILE_DIR="$APP_DIR/chromium-profile-screen1"
 SCREEN2_PROFILE_DIR="$APP_DIR/chromium-profile-screen2"
 
 USER_NAME="${SUDO_USER:-$(whoami)}"
-USER_HOME="$(getent passwd "$USER_NAME" | awk -F: '{print $6}')"
+USER_HOME="$(getent passwd "$USER_NAME" | cut -d: -f6)"
 if [ -z "$USER_HOME" ]; then
   echo "❌ Home-Verzeichnis für User '$USER_NAME' konnte nicht ermittelt werden."
   exit 1
