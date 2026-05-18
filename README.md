@@ -78,7 +78,7 @@ journalctl -t kiosk-screen2 -n 50 --no-pager
 
 Die Skripte loggen beim Start u. a.:
 
-- URL
+- URL (ohne Query/Fragment, mit maskierter User-Info)
 - DISPLAY
 - Fensterposition / Fenstergröße
 - User-Data-Directory

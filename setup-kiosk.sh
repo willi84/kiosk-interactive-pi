@@ -159,10 +159,19 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen1"
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
 
+sanitize_url_for_log() {
+  local raw_url="$1"
+  local without_fragment="${raw_url%%#*}"
+  local without_query="${without_fragment%%\?*}"
+  printf '%s\n' "$without_query" | sed -E 's#(://)[^/@]+@#\1***@#'
+}
+
+SAFE_URL="$(sanitize_url_for_log "$URL")"
+
 export DISPLAY="$DISPLAY_VALUE"
 
 echo "[$(date -Is)] [kiosk-screen1] Start requested (pid=$$)"
-echo "[$(date -Is)] [kiosk-screen1] URL=$URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+echo "[$(date -Is)] [kiosk-screen1] URL=$SAFE_URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
 
 xset s off || true
 xset -dpms || true
@@ -197,10 +206,19 @@ PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen2"
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
 
+sanitize_url_for_log() {
+  local raw_url="$1"
+  local without_fragment="${raw_url%%#*}"
+  local without_query="${without_fragment%%\?*}"
+  printf '%s\n' "$without_query" | sed -E 's#(://)[^/@]+@#\1***@#'
+}
+
+SAFE_URL="$(sanitize_url_for_log "$URL")"
+
 export DISPLAY="$DISPLAY_VALUE"
 
 echo "[$(date -Is)] [kiosk-screen2] Start requested (pid=$$)"
-echo "[$(date -Is)] [kiosk-screen2] URL=$URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
+echo "[$(date -Is)] [kiosk-screen2] URL=$SAFE_URL DISPLAY=$DISPLAY_VALUE WINDOW_POSITION=$WINDOW_POSITION WINDOW_SIZE=$WINDOW_SIZE USER_DATA_DIR=$PROFILE_DIR"
 
 xset s off || true
 xset -dpms || true
