@@ -33,8 +33,8 @@ fi
 source "$SETUP_CONFIG_FILE"
 
 CURRENT_HOSTNAME="$(hostname)"
-DEFAULT_SCREEN1_URL="https://example.com"
-DEFAULT_SCREEN2_URL="https://example.org"
+DEFAULT_SCREEN1_URL="https://docs.google.com/presentation/d/1qXXRuxEdrp3nGutWSS2N0uWYt8sRPmL24-GsqXWlJDM/present?loop=true&delayms=10000"
+DEFAULT_SCREEN2_URL="https://pendler-alarm.de/"
 DEFAULT_SCREEN1_WINDOW_POSITION="0,0"
 DEFAULT_SCREEN2_WINDOW_POSITION="1920,0"
 DEFAULT_SCREEN1_WINDOW_SIZE="1920,1080"
@@ -55,21 +55,74 @@ resolve_config_value() {
 
 detect_monitor_geometry() {
   local display="${1:-:0}"
-  local monitor_index="${2:-0}"
+  local monitor_selector="${2:-0}"
   local monitor_line=""
+  local monitor_lines=""
   local geometry=""
+  local best_geometry=""
+  local best_area=""
+  local area=""
+  local width=""
+  local height=""
+  local pos_x=""
+  local pos_y=""
 
-  monitor_line="$(DISPLAY="$display" xrandr --listmonitors 2>/dev/null | tail -n +2 | sed -n "$((monitor_index + 1))p" || true)"
+  monitor_lines="$(DISPLAY="$display" xrandr --listmonitors 2>/dev/null | tail -n +2 || true)"
+  if [ -z "$monitor_lines" ]; then
+    return
+  fi
+
+  if [ "$monitor_selector" = "largest" ] || [ "$monitor_selector" = "smallest" ]; then
+    while IFS= read -r monitor_line; do
+      geometry="$(printf '%s\n' "$monitor_line" | sed -nE 's/^[[:space:]]*[0-9]+:.* ([0-9]+)\/[0-9]+x([0-9]+)\/[0-9]+\+([0-9]+)\+([0-9]+).*/\1,\2,\3,\4/p')"
+      if [ -z "$geometry" ]; then
+        continue
+      fi
+
+      IFS=',' read -r width height pos_x pos_y <<< "$geometry"
+      area=$((width * height))
+
+      if [ -z "$best_area" ]; then
+        best_area="$area"
+        best_geometry="$geometry"
+        continue
+      fi
+
+      if [ "$monitor_selector" = "largest" ] && [ "$area" -gt "$best_area" ]; then
+        best_area="$area"
+        best_geometry="$geometry"
+      fi
+      if [ "$monitor_selector" = "smallest" ] && [ "$area" -lt "$best_area" ]; then
+        best_area="$area"
+        best_geometry="$geometry"
+      fi
+    done <<< "$monitor_lines"
+
+    if [ -n "$best_geometry" ]; then
+      printf '%s\n' "$best_geometry"
+    fi
+    return
+  fi
+
+  monitor_line="$(printf '%s\n' "$monitor_lines" | sed -n "$((monitor_selector + 1))p")"
   if [ -z "$monitor_line" ]; then
     return
   fi
 
   geometry="$(printf '%s\n' "$monitor_line" | sed -nE 's/^[[:space:]]*[0-9]+:.* ([0-9]+)\/[0-9]+x([0-9]+)\/[0-9]+\+([0-9]+)\+([0-9]+).*/\1,\2,\3,\4/p')"
-  if [ -z "$geometry" ]; then
-    return
+  if [ -n "$geometry" ]; then
+    printf '%s\n' "$geometry"
   fi
+}
 
-  printf '%s\n' "$geometry"
+detect_monitor_count() {
+  local display="${1:-:0}"
+  local monitor_count=""
+
+  monitor_count="$(DISPLAY="$display" xrandr --listmonitors 2>/dev/null | sed -nE 's/^Monitors:[[:space:]]*([0-9]+)$/\1/p' | head -n1 || true)"
+  if [ -n "$monitor_count" ]; then
+    printf '%s\n' "$monitor_count"
+  fi
 }
 
 screen_defaults_from_geometry() {
@@ -103,12 +156,16 @@ WIFI_HIDDEN="${WIFI_HIDDEN:-false}"
 SCREEN1_DISPLAY="${SCREEN1_DISPLAY:-:0}"
 SCREEN2_DISPLAY="${SCREEN2_DISPLAY:-:0}"
 
+SCREEN1_MONITOR_COUNT="$(detect_monitor_count "$SCREEN1_DISPLAY")"
 SCREEN1_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN1_DISPLAY" 0)"
-SCREEN2_MONITOR_INDEX=1
-if [ "$SCREEN2_DISPLAY" != "$SCREEN1_DISPLAY" ]; then
-  SCREEN2_MONITOR_INDEX=0
+SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" 1)"
+
+if [ "$SCREEN1_DISPLAY" = "$SCREEN2_DISPLAY" ] && [ -n "$SCREEN1_MONITOR_COUNT" ] && [ "$SCREEN1_MONITOR_COUNT" -ge 2 ]; then
+  SCREEN1_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN1_DISPLAY" largest)"
+  SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" smallest)"
+elif [ "$SCREEN2_DISPLAY" != "$SCREEN1_DISPLAY" ]; then
+  SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" 0)"
 fi
-SCREEN2_MONITOR_GEOMETRY="$(detect_monitor_geometry "$SCREEN2_DISPLAY" "$SCREEN2_MONITOR_INDEX")"
 
 SCREEN1_DEFAULTS="$(screen_defaults_from_geometry "$SCREEN1_MONITOR_GEOMETRY" "$DEFAULT_SCREEN1_WINDOW_POSITION" "$DEFAULT_SCREEN1_WINDOW_SIZE")"
 SCREEN2_DEFAULTS="$(screen_defaults_from_geometry "$SCREEN2_MONITOR_GEOMETRY" "$DEFAULT_SCREEN2_WINDOW_POSITION" "$DEFAULT_SCREEN2_WINDOW_SIZE")"

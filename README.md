@@ -29,7 +29,14 @@ cd /pfad/zum/plugin
 sudo ./setup-kiosk.sh
 ```
 
-Wenn `SCREEN1_WINDOW_POSITION`, `SCREEN1_WINDOW_SIZE`, `SCREEN2_WINDOW_POSITION` oder `SCREEN2_WINDOW_SIZE` in `kiosk-config.env` nicht gesetzt sind, übernimmt `setup-kiosk.sh` nach Möglichkeit die aktuelle Monitor-Geometrie aus `xrandr --listmonitors`. Ohne erkennbare X-Layout-Infos bleiben die bisherigen Standardwerte aktiv.
+Wenn `SCREEN1_WINDOW_POSITION`, `SCREEN1_WINDOW_SIZE`, `SCREEN2_WINDOW_POSITION` oder `SCREEN2_WINDOW_SIZE` in `kiosk-config.env` nicht gesetzt sind, übernimmt `setup-kiosk.sh` nach Möglichkeit die aktuelle Monitor-Geometrie aus `xrandr --listmonitors`. Bei zwei Monitoren auf demselben `DISPLAY` wird `screen1` automatisch auf den größeren und `screen2` auf den kleineren Monitor gelegt. Ohne erkennbare X-Layout-Infos bleiben die bisherigen Standardwerte aktiv.
+
+Standard-URLs:
+
+- `screen1` (größerer Screen): Google Slides Präsentation
+- `screen2` (kleinerer Screen): `https://pendler-alarm.de/`
+
+Hinweis zur Touch-Erkennung: Aktuell wird Touch nicht separat per Input-Device-Mapping erkannt, sondern über die Größen-Heuristik abgebildet (`kleinerer Screen = Touch`, sofern das Setup so verdrahtet ist).
 
 Beispiel für gemischte Auflösungen:
 
