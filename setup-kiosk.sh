@@ -7,8 +7,16 @@ SETUP_CONFIG_FILE="$SCRIPT_DIR/kiosk-config.env"
 APP_DIR="/opt/dual-kiosk-display"
 CONFIG_DIR="/etc/dual-kiosk-display"
 CONFIG_FILE="$CONFIG_DIR/config.json"
+SCREEN1_PROFILE_DIR="$APP_DIR/chromium-profile-screen1"
+SCREEN2_PROFILE_DIR="$APP_DIR/chromium-profile-screen2"
 
 USER_NAME="${SUDO_USER:-$(whoami)}"
+USER_HOME="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+if [ -z "$USER_HOME" ]; then
+  echo "❌ Home-Verzeichnis für User '$USER_NAME' konnte nicht ermittelt werden."
+  exit 1
+fi
+HOME_CONFIG_SYMLINK="$USER_HOME/kiosk-config.env"
 
 if [ "$USER_NAME" = "root" ]; then
   echo "❌ Bitte nicht direkt als root ausführen. Nutze deinen normalen User."
@@ -94,6 +102,11 @@ sudo apt install -y \
 
 echo "== Verzeichnisse =="
 sudo mkdir -p "$APP_DIR" "$CONFIG_DIR"
+sudo mkdir -p "$SCREEN1_PROFILE_DIR" "$SCREEN2_PROFILE_DIR"
+
+echo "== Config Symlink im Home-Verzeichnis =="
+sudo -u "$USER_NAME" ln -sfn "$SETUP_CONFIG_FILE" "$HOME_CONFIG_SYMLINK"
+echo "✅ Symlink erstellt: $HOME_CONFIG_SYMLINK -> $SETUP_CONFIG_FILE"
 
 echo "== Kiosk Config =="
 sudo tee "$CONFIG_FILE" >/dev/null <<EOF
@@ -137,14 +150,16 @@ set -euo pipefail
 CONFIG_FILE="/etc/dual-kiosk-display/config.json"
 
 URL="$(jq -r '.screen1.url' "$CONFIG_FILE")"
+DISPLAY_VALUE="$(jq -r '.screen1.display // ":0"' "$CONFIG_FILE")"
 CHROMIUM_CMD="$(jq -r '.chromiumCommand // "chromium"' "$CONFIG_FILE")"
 WINDOW_POSITION="$(jq -r '.screen1.windowPosition // "0,0"' "$CONFIG_FILE")"
 WINDOW_SIZE="$(jq -r '.screen1.windowSize // "1920,1080"' "$CONFIG_FILE")"
+PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen1"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
 
-export DISPLAY=:0
+export DISPLAY="$DISPLAY_VALUE"
 
 xset s off || true
 xset -dpms || true
@@ -155,6 +170,7 @@ exec "$CHROMIUM_CMD" \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
+  --user-data-dir="$PROFILE_DIR" \
   --kiosk \
   --window-position="$POS_X,$POS_Y" \
   --window-size="$WIDTH,$HEIGHT" \
@@ -169,14 +185,16 @@ set -euo pipefail
 CONFIG_FILE="/etc/dual-kiosk-display/config.json"
 
 URL="$(jq -r '.screen2.url' "$CONFIG_FILE")"
+DISPLAY_VALUE="$(jq -r '.screen2.display // ":0"' "$CONFIG_FILE")"
 CHROMIUM_CMD="$(jq -r '.chromiumCommand // "chromium"' "$CONFIG_FILE")"
 WINDOW_POSITION="$(jq -r '.screen2.windowPosition // "1920,0"' "$CONFIG_FILE")"
 WINDOW_SIZE="$(jq -r '.screen2.windowSize // "1920,1080"' "$CONFIG_FILE")"
+PROFILE_DIR="/opt/dual-kiosk-display/chromium-profile-screen2"
 
 IFS=',' read -r POS_X POS_Y <<< "$WINDOW_POSITION"
 IFS=',' read -r WIDTH HEIGHT <<< "$WINDOW_SIZE"
 
-export DISPLAY=:0
+export DISPLAY="$DISPLAY_VALUE"
 
 xset s off || true
 xset -dpms || true
@@ -187,6 +205,7 @@ exec "$CHROMIUM_CMD" \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
+  --user-data-dir="$PROFILE_DIR" \
   --kiosk \
   --window-position="$POS_X,$POS_Y" \
   --window-size="$WIDTH,$HEIGHT" \
@@ -206,9 +225,8 @@ Wants=network-online.target
 
 [Service]
 User=$USER_NAME
-Environment=DISPLAY=:0
 ExecStart=$APP_DIR/kiosk-screen1.sh
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]
@@ -223,9 +241,8 @@ Wants=network-online.target
 
 [Service]
 User=$USER_NAME
-Environment=DISPLAY=:0
 ExecStart=$APP_DIR/kiosk-screen2.sh
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]
@@ -242,5 +259,6 @@ echo "👤 User: $USER_NAME"
 echo "🏷️ Hostname: $KIOSK_HOSTNAME"
 echo "🌐 Screen 1 URL: $SCREEN1_URL"
 echo "🌐 Screen 2 URL: $SCREEN2_URL"
+echo "🔗 Config Symlink: $HOME_CONFIG_SYMLINK"
 echo "📡 IP:"
 hostname -I
